@@ -20,7 +20,7 @@ CHATBOX_INPUT = "/chatbox/input"
 CHATBOX_TYPING = "/chatbox/typing"
 
 MONITOR_INTERVAL = 3.0       # 系统信息刷新间隔（秒）
-USER_MSG_TTL = 12.0           # 用户消息在聊天框保留时长（秒）
+USER_MSG_TTL = 30.0           # 用户消息在聊天框保留时长（秒）
 
 
 # ──────────────────── 文件读取 ────────────────────
