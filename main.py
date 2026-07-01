@@ -66,7 +66,11 @@ def _init_cached_info() -> None:
             f"{steam_root}/steamapps/compatdata/438100/config_info"
         )
         for line in info.splitlines():
-            if line and "/" not in line and "." not in line and not line.startswith("/"):
+            line = line.strip()
+            if not line:
+                continue
+            # 过滤路径行和时间戳行，提取纯版本名
+            if "/" not in line and not line.replace(".", "").isdigit():
                 _PROTON_VER = line
                 break
         if not _PROTON_VER:
