@@ -8,7 +8,6 @@
 """
 
 import argparse
-import os
 import subprocess
 import sys
 import threading
@@ -37,47 +36,32 @@ def read_file(path: str) -> str:
 
 # ──────────────────── 系统信息采集（不变部分缓存） ────────────────────
 
-_OS_INFO: str = ""
-_PROTON_VER: str = ""
+_SYS_PREFIX: str = ""
 
 
 def _init_cached_info() -> None:
     """启动时一次性读取不会变的信息"""
-    global _OS_INFO, _PROTON_VER
+    global _SYS_PREFIX
 
-    # OS + 内核
     try:
-        name = read_file("/etc/os-release")
-        pretty = ""
-        for line in name.splitlines():
+        # 系统名（取 PRETTY_NAME 或 ID）
+        os_name = ""
+        for line in read_file("/etc/os-release").splitlines():
             if line.startswith("PRETTY_NAME="):
-                pretty = line.split("=", 1)[1].strip('"')
+                os_name = line.split("=", 1)[1].strip('"')
                 break
-        kernel = read_file("/proc/sys/kernel/osrelease")
-        _OS_INFO = f"{pretty} | {kernel}" if pretty and kernel else "--"
-    except Exception as e:
-        print(f"[WARN] OS info: {e}", file=sys.stderr)
-        _OS_INFO = "--"
+        if not os_name:
+            os_name = "--"
 
-    # Proton 版本
-    try:
-        steam_root = os.path.expanduser("~/.steam/steam")
-        info = read_file(
-            f"{steam_root}/steamapps/compatdata/438100/config_info"
-        )
-        for line in info.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            # 过滤路径行和时间戳行，提取纯版本名
-            if "/" not in line and not line.replace(".", "").isdigit():
-                _PROTON_VER = line
-                break
-        if not _PROTON_VER:
-            _PROTON_VER = "--"
+        # 简短内核版本：7.2.0-rc1-1-cachyos-rc → 7.2.0-rc1
+        raw = read_file("/proc/sys/kernel/osrelease")
+        parts = raw.split("-", 2)
+        kernel = "-".join(parts[:2]) if len(parts) >= 2 else raw
+
+        _SYS_PREFIX = f"{os_name} {kernel}"
     except Exception as e:
-        print(f"[WARN] Proton info: {e}", file=sys.stderr)
-        _PROTON_VER = "--"
+        print(f"[WARN] System info: {e}", file=sys.stderr)
+        _SYS_PREFIX = "--"
 
 
 def get_cpu_temp() -> str:
@@ -171,16 +155,17 @@ def get_gpu() -> tuple[str, str, str]:
 
 def build_chatbox_text(user_text: str) -> str:
     """组合系统信息 + 硬件状态 + 用户消息"""
-    os_line = f"{_OS_INFO} | {_PROTON_VER}"
     gpu_temp, gpu_util, vram = get_gpu()
     hw_line = (
-        f"GPU:{gpu_temp} {gpu_util} | VRAM:{vram} "
-        f"| RAM:{get_ram()} | CPU:{get_cpu_temp()} {get_cpu_usage()}"
+        f"{_SYS_PREFIX}  "
+        f"GPU:{gpu_temp} {gpu_util}  "
+        f"VRAM:{vram}  "
+        f"RAM:{get_ram()}  "
+        f"CPU:{get_cpu_temp()} {get_cpu_usage()}"
     )
 
-    parts = [os_line, hw_line]
+    parts = [hw_line]
     if user_text:
-        parts.append("")
         parts.append(user_text)
     return "\n".join(parts)
 
