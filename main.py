@@ -19,8 +19,8 @@ VRC_PORT = 9000
 CHATBOX_INPUT = "/chatbox/input"
 CHATBOX_TYPING = "/chatbox/typing"
 
-MONITOR_INTERVAL = 3.0      # 系统信息刷新间隔（秒）
-USER_MSG_TTL = 12.0          # 用户消息在聊天框保留时长（秒）
+MONITOR_INTERVAL = 3.0       # 系统信息刷新间隔（秒）
+USER_MSG_TTL = 12.0           # 用户消息在聊天框保留时长（秒）
 
 
 # ──────────────────── 文件读取 ────────────────────
@@ -164,19 +164,20 @@ def build_chatbox_text(user_text: str) -> str:
         f"CPU:{get_cpu_temp()} {get_cpu_usage()}"
     )
 
-    parts = [hw_line]
-    if user_text:
-        parts.append(user_text)
-    return "\n".join(parts)
+    # 始终保留第二行，减少文本结构变化导致的闪烁
+    return f"{hw_line}\n{user_text}"
 
 
 # ──────────────────── OSC 发送 ────────────────────
 
-def send_chatbox(client: udp_client.SimpleUDPClient, text: str) -> None:
-    client.send_message(CHATBOX_TYPING, True)
+def send_chatbox(client: udp_client.SimpleUDPClient, text: str,
+                 typing: bool = True) -> None:
+    if typing:
+        client.send_message(CHATBOX_TYPING, True)
     client.send_message(CHATBOX_INPUT, [text, True])
-    time.sleep(0.05)
-    client.send_message(CHATBOX_TYPING, False)
+    if typing:
+        time.sleep(0.05)
+        client.send_message(CHATBOX_TYPING, False)
 
 
 # ──────────────────── 后台监控线程 ────────────────────
@@ -243,7 +244,7 @@ def monitor_loop(client: udp_client.SimpleUDPClient, state: ChatState) -> None:
         if state.monitor_enabled:
             try:
                 text = build_chatbox_text(state.get_user_text())
-                send_chatbox(client, text)
+                send_chatbox(client, text, typing=False)
             except Exception as e:
                 print(f"[WARN] OSC 发送失败: {e}", file=sys.stderr)
         state.wait(MONITOR_INTERVAL)
